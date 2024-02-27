@@ -187,3 +187,27 @@ them into your main.go file:
 ```go
 	"github.com/tomit4/rssagg/internal/database"
 ```
+
+## Building And Running The Server
+
+```bash
+go build && ./rssagg
+```
+
+## Quering The DB From pgcli:
+
+```pgcli
+use rssagg;
+select * from users;
+```
+
+## Using Postman to Test The API
+
+From Postman, you can test the API by sending a GET request to the `users`
+route. Navigate to the `users` route in Postman and send a GET/POST request.
+For POST, you can navigate to `localhost:$PORT/v1/users` and within the Body,
+select 'raw' and paste standard JSON such as:
+
+```json
+{ "name": "Lane" }
+```

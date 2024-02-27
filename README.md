@@ -211,3 +211,11 @@ select 'raw' and paste standard JSON such as:
 ```json
 { "name": "Lane" }
 ```
+
+### Testing API Key endpoint
+
+We set up a GET request for /users that requires Auth Headers to be sent. After
+creating a new user in Postman using the previous section's method, grab the
+ApiKey field's value and use it to authenticate against the GET /users route. In
+the Authorization tab, under Key, set "Authorization" and in value, set it to
+"ApiKey $COPIED_API_KEY". Send it to test.

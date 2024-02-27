@@ -45,3 +45,145 @@ And also the cors package from the same repo maintainer:
 ```bash
 go get github.com/go-chi/cors
 ```
+
+### Setting Up The Postgres Database
+
+You'll need to install sqlc as well as goose. Although Lane simply uses go to
+install these, we'll use our native package managers to do so:
+
+```bash
+doas pacman -S sqlc && paru goose
+```
+
+**Goose**
+
+Goose is sets up migrations using .sql files. You'll need to create a database
+in your local postgres instance called `rssagg`:
+
+```Postgres
+CREATE DATABASE rssagg;
+```
+
+Once created, within the `sql/schema` directory, create a `001_users.sql` file
+and insert the following:
+
+```sql
+
+-- +goose Up
+
+CREATE TABLE users (
+        id UUID PRIMARY KEY,
+        created_at TIMESTAMP NOT NULL,
+        updated_at TIMESTAMP NOT NULL,
+        name TEXT NOT NULL
+);
+
+-- +goose Down
+
+DROP TABLE users;
+```
+
+Within your env sample file insert your credentials for your local postgres
+database (see env.sample).
+
+Using this DB_URL, you can now migrate your database up from within the
+`sql/schema` directory run:
+
+```bash
+goose postgres $DB_URL up
+```
+
+Within psql or pgcli clients, you can now view your created table from within
+the rssagg database like so:
+
+```sql
+use rssagg;
+\d;
+\d users;
+```
+
+You can also run the following to clean up your database.
+
+```bash
+goose postgres $DB_URL down
+```
+
+**SQLC**
+
+Now that you have goose and sqlc installed, you can use sqlc to generate your
+queries. sqlc requires a configuration yaml file in the root of your project
+. Here's what we have in ours:
+
+```yaml
+version: "2"
+sql:
+  - schema: "sql/schema"
+    queries: "sql/queries"
+    engine: "postgresql"
+    gen:
+      go:
+        out: "internal/database"
+```
+
+We now create our Queries within the sql/queries directory, creating .sql files,
+here is our users.sql file:
+
+```sql
+-- name: CreateUser :one
+
+INSERT INTO users (id, created_at, updated_at, name)
+VALUES ($1, $2, $3, $4) RETURNING *;
+```
+
+Note the comments at the top, these are required and basically create an sql
+function called CreateUser that is called once. Ther est of the sql statement
+should be somewhat familiar to you.
+
+You'll need to run the sqlc command from the root of your project (where your
+sqlc.yaml file is) like so:
+
+```bash
+sqlc generate
+```
+
+It then utilizes the sqlc yaml file to generate the sql queries you needed by
+reading the passed files (in this case the schema/001_users.sql file and the
+queries/user.sql file). It will then generate a series of go files in the
+internal/database directory.
+
+We'll now adjust our DB_URL env variable to disable sslmode (and remove the
+rssagg db specification) giving us something like this:
+
+```
+DB_URL=postgres://postgres:password@localhost:5432/rssagg?sslmode=disable
+```
+
+You'll also need to import a driver called `pq` from github, even though it is
+never called, this allows the line:
+
+```go
+type apiConfig struct {
+	DB *database.Queries
+}
+```
+
+To work. Install it using go get:
+
+```bash
+go get github.com/lib/pq
+```
+
+And in your main.go file, import it:
+
+```go
+import (
+    _ "github.com/lib/pq"
+)
+```
+
+You'll also need to point the database to the sqlc generated files by importing
+them into your main.go file:
+
+```go
+	"github.com/tomit4/rssagg/internal/database"
+```
